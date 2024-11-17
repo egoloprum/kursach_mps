@@ -1,12 +1,21 @@
 #include <avr/io.h>
 #include <util/delay.h>
+
+#include <string.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "lcd.h"
 #include "keypad.h"
 
-void convert_to_letters(char* key_store, int count) {
-    char result[20]; // Buffer to hold the resulting letters
-    int j = 0; // Index for the result array
+const char* convert_to_letters(char* key_store, int count) {
+    char* result = (char*)malloc(20 * sizeof(char)); 	// Allocate memory for the result
+    if (result == NULL) {
+        return NULL; 					// Check for allocation failure
+    }
 
+    int j = 0; 						// Index for the result array
     int i = 0;
     for (i = 0; i < count; i++) {
         char key = key_store[i];
@@ -38,54 +47,113 @@ void convert_to_letters(char* key_store, int count) {
         }
     }
 
-    result[j] = '\0'; // Null-terminate the result string
-    lcd_command(0x01); // Clear the LCD
-    _delay_ms(2);
-    lcd_print(result); // Print the resulting letters
+    result[j] = '\0'; 			// Null-terminate the result string
+    return result; 			// Return the dynamically allocated string
+}
+
+// checks if string has same chars
+int areAllCharactersSame(const char *str) {
+   if (str == NULL || str[0] == '\0') {
+     return 1; 					// Consider empty string as having all same characters
+   }
+
+   char firstChar = str[0];
+   int i = 1;
+   for (i = 1; str[i] != '\0'; i++) {
+     if (str[i] != firstChar) {
+	 return 0; 				// Found a different character
+     }
+   }
+
+   return 1; 					// All characters are the same
+}
+
+char* addChar(char* str, char ch) {
+   int len = strlen(str);
+   char* new_str = (char*)malloc(len + 2);
+   if (new_str == NULL) {
+      return NULL;
+   }
+   strcpy(new_str, str);
+   new_str[len] = ch;
+   new_str[len + 1] = '\0';
+   free(str);
+
+   return new_str; 
 }
 
 int main(void) {
-    lcd_init(); // Initialize the LCD
-    lcd_print("Press a key:"); // Print an initial message
-    _delay_ms(1000);
-      
-    keypad_init();
-    char key;
-    char key_str[2]; // Array to hold the key as a string
-   
-    char key_store[20]; // Array to store the pressed keys (increased size)
-    int count = 0; // Counter for stored keys
-    char last_key = '\0'; // Variable to track the last key pressed
+   lcd_init(); 					// Initialize the LCD
+   lcd_print("Press a key: "); 			// Print an initial message
 
-    while (1) {
-        key = keypad_read(); // Read the key from the keypad
-        if (key && key != last_key) { // Check if a key is pressed and it's different from the last key
-            if (key != '*') {
-                // Store the key if it's not '*'
-                if (count < sizeof(key_store) - 1) { // Ensure we don't overflow the array
-                    key_store[count] = key;
-                    count++;
-                }
-            } else {
-                // If '*' is pressed, convert and display the stored keys
-                convert_to_letters(key_store, count);
-                
-                // Wait for a moment to see the output
-                //_delay_ms(2000); // Wait for 2 seconds to see the output
+   _delay_ms(2000);
+   _delay_ms(2);
 
-                // Clear the key_store array
-		int i = 0;
-                for (i = 0; i < sizeof(key_store); i++) {
-                    key_store[i] = '\0'; // Set each element to null character
-                }
-                count = 0; // Reset the count
-            }
+   keypad_init();
+   char key;
+   char key_store[20];
+   int count = 0;
 
-            // Update the last key pressed
-            last_key = key;
-        } else if (!key) {
-            // Reset last_key when no key is pressed
-            last_key = '\0';
-        }
-    }
+   char current_keys[10];
+   int current_count = 0;
+
+   int same_chars = -1;
+
+   while (1) {
+      key = keypad_read();
+
+      if (key) {
+	 // for writing current_keys
+	 if (key != '*' && key != '#') {
+	    if (current_count < sizeof(current_keys) - 1) { // Prevent overflow
+	       current_keys[current_count] = key;
+	       current_count++;
+	    }
+	    same_chars = areAllCharactersSame(current_keys);
+	 }
+
+	 // for clearing current_keys
+	 else if (key == '#') {
+	    lcd_command(0x01); 
+	    _delay_ms(2);
+	    strcpy(current_keys, "");
+	    current_count = 0;
+	 }
+
+	 // for submitting it to key_store
+	 else {
+	    const char* add_key = convert_to_letters(current_keys, current_count);
+	    if (add_key != NULL) {
+	       if (count < sizeof(key_store) / sizeof(key_store[0])) { // Ensure space in key_store
+		  strcpy(key_store[count], add_key); // Copy the string
+		  count++;
+	       }
+	       free((void*)add_key); // Free the allocated memory
+	    }
+	    
+	    lcd_command(0x01);
+	    _delay_ms(2);
+	    
+	    lcd_print(current_keys);
+	    _delay_ms(2);
+
+	    strcpy(current_keys, "");
+	    current_count = 0;
+	 }
+
+	 if (same_chars == 0) {
+	    strcpy(current_keys, "");
+	    current_count = 0;
+	    lcd_command(0x01);
+	    _delay_ms(2);
+	    
+	    lcd_print("Press the same keys then * please.");
+	    _delay_ms(2000);
+	    
+	    lcd_command(0x01);
+	    _delay_ms(2);
+	 }
+      }
+   }
+
 }
