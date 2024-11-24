@@ -3,9 +3,8 @@
 #include "lcd.h"
 #include "keypad.h"
 
-void convert_to_letters(char* key_store, int count) {
-    char result[20]; // Buffer to hold the resulting letters
-    int j = 0; // Index for the result array
+char convert_to_letters(char* key_store, int count) {
+    char last_char = '\0'; // Variable to hold the last generated character
 
     int i = 0;
     for (i = 0; i < count; i++) {
@@ -20,69 +19,93 @@ void convert_to_letters(char* key_store, int count) {
 
         // Map the key and press count to the corresponding letter
         if (key == '2') {
-            result[j++] = 'A' + (press_count - 1) % 3; // a, b, c
+            last_char = 'A' + (press_count - 1) % 3; // a, b, c
         } else if (key == '3') {
-            result[j++] = 'D' + (press_count - 1) % 3; // d, e, f
+            last_char = 'D' + (press_count - 1) % 3; // d, e, f
         } else if (key == '4') {
-            result[j++] = 'G' + (press_count - 1) % 3; // g, h, i
+            last_char = 'G' + (press_count - 1) % 3; // g, h, i
         } else if (key == '5') {
-            result[j++] = 'J' + (press_count - 1) % 3; // j, k, l
+            last_char = 'J' + (press_count - 1) % 3; // j, k, l
         } else if (key == '6') {
-            result[j++] = 'M' + (press_count - 1) % 3; // m, n, o
+            last_char = 'M' + (press_count - 1) % 3; // m, n, o
         } else if (key == '7') {
-            result[j++] = 'P' + (press_count - 1) % 4; // p, q, r, s
+            last_char = 'P' + (press_count - 1) % 4; // p, q, r, s
         } else if (key == '8') {
-            result[j++] = 'T' + (press_count - 1) % 3; // t, u, v
+            last_char = 'T' + (press_count - 1) % 3; // t, u, v
         } else if (key == '9') {
-            result[j++] = 'W' + (press_count - 1) % 4; // w, x, y, z
+            last_char = 'W' + (press_count - 1) % 4; // w, x, y, z
         }
     }
 
-    result[j] = '\0'; // Null-terminate the result string
-    lcd_command(0x01); // Clear the LCD
-    _delay_ms(2);
-    lcd_print(result); // Print the resulting letters
+    return last_char; // Return the last generated character
 }
 
 int main(void) {
     lcd_init(); // Initialize the LCD
-    lcd_print("Press a key:"); // Print an initial message
-    _delay_ms(1000);
+    lcd_print("Press a key: "); // Print an initial message
+    _delay_ms(2000);
+   
+    lcd_command(0x01); // Clear the LCD
+    _delay_ms(2);
       
     keypad_init();
+    char gos_nomer[10] = {0}; // Array to hold the car number
+    int len_gos_nomer = 0;
+
     char key;
-    char key_str[2]; // Array to hold the key as a string
-   
-    char key_store[20]; // Array to store the pressed keys (increased size)
-    int count = 0; // Counter for stored keys
     char last_key = '\0'; // Variable to track the last key pressed
+    char key_store[10] = {0}; // Temporary key store
+    int len_key_store = 0;
 
-    while (1) {
-        key = keypad_read(); // Read the key from the keypad
-        if (key && key != last_key) { // Check if a key is pressed and it's different from the last key
-            if (key != '*') {
-                // Store the key if it's not '*'
-                if (count < sizeof(key_store) - 1) { // Ensure we don't overflow the array
-                    key_store[count] = key;
-                    count++;
-                }
-            } else {
-                // If '*' is pressed, convert and display the stored keys
-                convert_to_letters(key_store, count);
-                
-                // Wait for a moment to see the output
-                //_delay_ms(2000); // Wait for 2 seconds to see the output
+    while(1) {
+        key = keypad_read(); // Read the key press
 
-                // Clear the key_store array
-		int i = 0;
-                for (i = 0; i < sizeof(key_store); i++) {
-                    key_store[i] = '\0'; // Set each element to null character
+        // Check if a key is pressed and it's different from the last key
+        if (key && key != last_key) {
+            // Insert key into key_store
+            if (key != '*' && key != '#') {
+                if (len_key_store < sizeof(key_store) - 1) {
+                    key_store[len_key_store] = key; // Store the key
+                    len_key_store++;
                 }
-                count = 0; // Reset the count
+            }
+            // Clear key_store
+            else if (key == '#') {
+                len_key_store = 0; // Reset the key store
+            }
+            // Submit to gos_nomer
+            else {
+                // Check if we can add to gos_nomer
+                if (len_gos_nomer < sizeof(gos_nomer) - 1) {
+		   
+		   
+		   if (len_gos_nomer == 0 || len_gos_nomer == 4 || len_gos_nomer == 5) {
+		     char that_letter = convert_to_letters(key_store, len_key_store);
+		     gos_nomer[len_gos_nomer] = that_letter;
+		   }
+		   
+		   else {
+		     char that_number = key_store[0]; // Get the first character from key_store
+		     gos_nomer[len_gos_nomer] = that_number; // Add to gos_nomer		      
+		   }
+		   
+                    len_gos_nomer++; // Increment the length
+                    gos_nomer[len_gos_nomer] = '\0'; // Null-terminate the string
+                }
+		
+		
+
+
+                // Clear key_store
+                len_key_store = 0;
+
+		// Update the LCD
+		lcd_command(0x01); 
+                _delay_ms(2);
+                lcd_print(gos_nomer); 
             }
 
-            // Update the last key pressed
-            last_key = key;
+            last_key = key; // Update last_key to the current key
         } else if (!key) {
             // Reset last_key when no key is pressed
             last_key = '\0';
