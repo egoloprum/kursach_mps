@@ -7,13 +7,15 @@
 
 // Define the Truck structure
 struct Truck {
-    char gos_nomer[9];         // License plate number (9 characters)
-    char mass_without_load[4]; // Mass without load (as string)
-    char mass_with_load[4];    // Mass with load (as string)
+    char gos_nomer[10];         // License plate number (9 characters)
+    char mass_without_load[5]; // Mass without load (as string)
+    char mass_with_load[5];    // Mass with load (as string)
 };
 
 // Declare an array of 10 trucks
 extern struct Truck trucks[5];
+   
+extern struct Truck read_trucks[5];
 
 // Function to write a truck to EEPROM
 void write_truck_to_eeprom(uint16_t addr, struct Truck* truck);
