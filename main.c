@@ -1,7 +1,22 @@
 #include <avr/io.h>
+#include <avr/eeprom.h>
 #include <util/delay.h>
+#include <stdbool.h>
+
 #include "lcd.h"
 #include "keypad.h"
+#include "eeprom.h"
+
+#define BUZZER_PIN PD7
+
+void setup() {
+  // Set PD7 as an output
+  DDRD |= (1 << BUZZER_PIN);
+}
+
+void toggle_buzzer() {
+  PORTD ^= (1 << BUZZER_PIN);
+}
 
 char convert_to_letters(char* key_store, int count) {
   char last_char = '\0'; // Variable to hold the last generated character
@@ -40,25 +55,12 @@ char convert_to_letters(char* key_store, int count) {
   return last_char; // Return the last generated character
 }
 
-#define BUZZER_PIN PD7
-
-void setup() {
-    // Set PD7 as an output
-    DDRD |= (1 << BUZZER_PIN);
-}
-
-void toggle_buzzer() {
-    PORTD ^= (1 << BUZZER_PIN);
-}
-
 // start
 int main(void) {
   setup();
-   
-  //while(1) {
-  //  toggle_buzzer();
-  //  _delay_ms(1000); // Wait for 1 second
-  //}
+     
+  write_all_trucks_to_eeprom();
+  read_all_trucks_from_eeprom();
    
   lcd_init(); // Initialize the LCD
   lcd_print("Input gos nomer: "); // Print an initial message
@@ -70,6 +72,7 @@ int main(void) {
   keypad_init();
   char gos_nomer[10] = {0}; // Array to hold the car number
   int len_gos_nomer = 0;
+  int i = 0;
 
   char key;
   char last_key = '\0'; // Variable to track the last key pressed
@@ -91,12 +94,8 @@ int main(void) {
           len_key_store++;
         }
       }
-
-      // Clear key_store
-      else if (key == '#') {
-        len_key_store = 0; // Reset the key store
-      }
-    // Submit to gos_nomer
+      
+      // Submit to gos_nomer
       else {
         // Check if we can add to gos_nomer
         if (len_gos_nomer < sizeof(gos_nomer) - 1) {
@@ -122,7 +121,7 @@ int main(void) {
         lcd_command(0x01); 
         _delay_ms(2);
 	
-	      char buffer[3]; // Buffer to hold the string representation (2 digits + null terminator)
+	char buffer[3]; // Buffer to hold the string representation (2 digits + null terminator)
         sprintf(buffer, "%d", len_gos_nomer);
 	
         lcd_print(gos_nomer); 
@@ -175,7 +174,7 @@ int main(void) {
 
         lcd_command(0x01);
         _delay_ms(500);
-        char print_str[50];
+        char print_str[30];
         sprintf(print_str, "mass without load = %s", mass_without_load);
         lcd_print(print_str);
         break;
@@ -201,9 +200,8 @@ int main(void) {
   char mass_with_load[6] = {0};
   len_key_store = 0;
 
-  int z = 0;
-  for (z = 0; z < sizeof(key_store); z++) {
-    key_store[z] = '\0'; // Set each element to null character
+  for (i = 0; i < sizeof(key_store); i++) {
+    key_store[i] = '\0'; // Set each element to null character
   }
 
   // mass with load loop
@@ -227,7 +225,7 @@ int main(void) {
         
         lcd_command(0x01);
         _delay_ms(500);
-        char print_str[50];
+        char print_str[30];
         sprintf(print_str, "mass with load = %s", mass_with_load);
         lcd_print(print_str);
         break;
@@ -241,5 +239,33 @@ int main(void) {
 
   //////////////////// end of mass with load ////////////////////
 
+  // if data matches or not, print the corresponding message
+  bool comparing = false;
+  lcd_command(0x01);
+  _delay_ms(2);
+
+  for (i = 0; i < 5; i++) {
+    if ((strcmp(gos_nomer, trucks[i].gos_nomer) == 0) && 
+        (strcmp(mass_without_load, trucks[i].mass_without_load) == 0) &&
+        (strcmp(mass_with_load, trucks[i].mass_with_load) == 0)) {
+          comparing = true;
+          break;
+    }
+  }
+   
+  if (comparing) {
+    lcd_command(0x01);
+    _delay_ms(250);
+    lcd_print("match");
+  }
+  else {
+    lcd_command(0x01);
+    _delay_ms(250);
+    lcd_print("not a match");
+    toggle_buzzer();
+    _delay_ms(500);
+  }
   
+  return;
 }
+
