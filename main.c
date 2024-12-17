@@ -121,7 +121,7 @@ int main(void) {
         lcd_command(0x01); 
         _delay_ms(2);
 	
-	char buffer[3]; // Buffer to hold the string representation (2 digits + null terminator)
+        char buffer[3]; // Buffer to hold the string representation (2 digits + null terminator)
         sprintf(buffer, "%d", len_gos_nomer);
 	
         lcd_print(gos_nomer); 
